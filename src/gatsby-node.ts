@@ -123,6 +123,15 @@ export async function onCreateNode({
 }) {
   if (node.internal.type === "S3Object" && node.Key && isImage(node.Key)) {
     try {
+
+      const imageCacheKey = node.Key;
+      const cachedImageData = await cache.get(imageCacheKey);
+
+      if (cachedImageData) {
+        node.localFile___NODE = cachedImageData.fileNodeID;
+        return;
+      }
+
       // download image file and save as node
       const imageFile = await createRemoteFileNode({
         url: node.url,
@@ -135,8 +144,10 @@ export async function onCreateNode({
       });
 
       if (imageFile) {
+        const { id } = imageFile;
         // add local image file to s3 object node
-        node.localFile___NODE = imageFile.id; // eslint-disable-line @typescript-eslint/naming-convention
+        node.localFile___NODE = id; // eslint-disable-line @typescript-eslint/naming-convention
+        await cache.set(imageCacheKey, { id });
       }
     } catch (error) {
       reporter.error(error);
